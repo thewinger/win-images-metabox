@@ -1,0 +1,15 @@
+.image-metabox__wrapper {
+  display: flex;
+  flex-flow: row wrap;
+  gap: 0.5rem;
+}
+
+.image-metabox__item {
+  margin: 0;
+  padding: 0;
+}
+.image-metabox__item img {
+  margin: 0;
+  padding: 0;
+  display: block;
+}
