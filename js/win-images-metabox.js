@@ -33,6 +33,8 @@ jQuery(document).ready(function ($) {
       contentUserSetting: false,
     }));
 
+    console.log(winMedia);
+
     // Specify action for 'open' action
     winMedia.on("open", function () {
       if (existingImages.length > 0) {
@@ -114,5 +116,6 @@ jQuery(document).ready(function ($) {
 
     // OPEN THE MODAL
     winMedia.open();
+    console.log(winMedia);
   }); // addButton
 }); // jQuery
