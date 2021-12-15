@@ -1,135 +1,118 @@
-jQuery(document).ready(function($) {
-
+jQuery(document).ready(function ($) {
   var postID = winFromPHP.postID;
   var existingImages = winFromPHP.existingImages;
-  var addButton = $('#images-upload-button');
-  var removeButton = $('#images-delete-button');
-  var imagesUL = $('#images-list__wrapper');
-  var hidden = $('#images-hidden-field');
+  console.log(`existingImages ${existingImages}`);
+  console.log(`existingVar ${existingImages.length}`);
+  console.log(`existingVarType ${$.type(existingImages)}`);
+
+  var addButton = $("#images-upload-button");
+  var removeButton = $("#images-delete-button");
+  var imagesUL = $("#images-container");
+  var hidden = $("#images-hidden-field");
   var l10nOriginal = {}; // STORE ORIGINAL BUTTON VALUES
   l10nOriginal = wp.media.view.l10n; // STORE ORIGINAL BUTTON VALUES
-  var galleryState = existingImages ? 'gallery-edit' : 'gallery-library';
-  if (existingImages) {
-    existingImages = $.parseJSON(existingImages);
-  }
 
-  var winMedia = wp.media.frames.winMedia = wp.media({
-    state: 'featured-gallery',
-    frame: 'post',
-    library: {
-      type: 'image'
-    }
-  });
-
-  // Create the custom view
-  winMedia.states.add([
-    new wp.media.controller.Library({
-      id: 'featured-gallery',
-      title: 'Imágenes de la propiedad',
-      priority: 20,
-      toolbar: 'main-gallery',
-      filterable: 'uploaded',
-      library: wp.media.query(winMedia.options.library),
-      multiple: 'add',
-      editable: false,
-      displaySettings: false,
-      displayUserSettings: false
-    }),
-  ]);
-
-  // Store reference to wrapping html of modal
-  var mediaModal = winMedia.el;
-  console.log(existingImages);
-
-  // Specify action for 'ready' action
-  winMedia.on('ready', function() {
-    // this tries to hide detail sidebar but doesn't work
-    mediaModal.classList.add('win-media-frame');
-    // fix_back_button();
-
-  });
-
-  // Specify action for 'open' action
-  winMedia.on('open', function() {
-
-    if ( existingImages != '') {
-      var selection = winMedia.state().get('selection');
-      var editState = winMedia.state('gallery-edit');
-      var attachment;
-
-      // Update selection
-      existingImages.forEach(function(imageID){
-        attachment = wp.media.attachment(imageID);
-        attachment.fetch();
-        selection.add(attachment);
-      });
-
-      editState.set('library', selection);
-      winMedia.setState('gallery-edit');
-
-      winMedia.modal.focusManager.focus();
-    }
-
-  });
-
-  winMedia.on('close', function() {
-
-    wp.media.view.l10n = l10nOriginal;
-
-  });
-
-  winMedia.on('update', function() {
-    imagesUL.html('');
-
-    winMedia.state().get('library').each(function(selectedImage,i){
-      var image = selectedImage.attributes;
-      var url = (image.sizes.thumbnail.url);
-      selectedImage.attributes.menuorder = i;
-      imagesUL.append('<img id="image-item__'+image.id+'" src="'+url+'"><input type="hidden" id="image-input__' + image.id + '" value="' + image.id + '" data-order="' + image.menuorder +'">');
-      console.log(`id: ${selectedImage.attributes.id} order: ${selectedImage.attributes.menuorder}`)
-    });
-
-  });
-
-  addButton.click(function(e) {
+  addButton.click(function (e) {
     e.preventDefault();
 
+    if (existingImages.length > 0) {
+      // existingImages = $.parseJSON(existingImages);
+      galleryState = "gallery-edit";
+    } else {
+      galleryState = "gallery-library";
+    }
+
+    var winMedia = (wp.media.frames.winMedia = wp.media({
+      state: galleryState,
+      frame: "post",
+      sortable: true,
+      library: {
+        type: "image",
+      },
+      // TODO contentUserSetting not working
+      contentUserSetting: false,
+    }));
+
+    // Specify action for 'open' action
+    winMedia.on("open", function () {
+      if (existingImages.length > 0) {
+        // Hay imagenes por lo que creamos la variable library y
+        var library = winMedia.state().get("library");
+        var selection = winMedia.state().get("selection");
+        // Update selection
+        existingImages.forEach(function (id) {
+          attachment = wp.media.attachment(id);
+          attachment.fetch();
+          // selection.add( attachment );
+          library.add(attachment);
+        });
+
+        // TODO Hide Attachemnt and Gallery Settings left bar
+        winMedia.state("gallery-edit").set("library", library);
+        winMedia.state("gallery-edit").set("displaySettings", false);
+        // winMedia.state("gallery-edit").set("selection", selection);
+        winMedia.setState("gallery-edit");
+
+        winMedia.modal.focusManager.focus();
+      } else {
+        console.log("existing empty, we stay with defaults");
+      }
+    });
+
+    winMedia.on("close", function () {
+      wp.media.view.l10n = l10nOriginal;
+    });
+
+    // This doesn't do anything in gallery mode
+    winMedia.on("insert", function () {
+      console.log("inserted");
+    });
+
+    winMedia.on("select", function () {
+      console.log("selected");
+    });
+
+    winMedia.on("update", function () {
+      console.log("update");
+      // Clean images wrapper
+      imagesUL.html("");
+      // Empty images to put the new ones
+      existingImages.length = 0;
+      // Get selected images from media frame
+      var library = winMedia.state().get("library");
+      var selection = winMedia.state().get("selection");
+      console.log(library);
+      // Go through each image of library and do something
+      library.each(function (selectedImage, i) {
+        // Get all image attributes
+        var image = selectedImage.attributes;
+        var thumb = image.sizes.thumbnail;
+        image.menuOrder = i;
+        imagesUL.append(`
+          <div class="win_image" id="win_image-${image.id}">
+            <img src="${thumb.url}" width="${thumb.width}" height="${thumb.height}">
+            <a href="#" class="image-delete">Borrar</a>
+            <input type="hidden" name="img_id[]" id="img_id-${image.id}" value="${image.id}">
+          </div>
+        `);
+        console.log(
+          `id: ${image.id} name: ${image.filename} order: ${image.menuOrder}`
+        );
+        existingImages.push(image.id);
+      });
+      // tried to set the library save the new menuOrder but didn't work
+      // console.log(library);
+      console.log(selection);
+      // winMedia.state().set('library', library);
+      console.log("Update done");
+    });
 
     // CUSTOMIZE THE MAIN BUTTON TEXT
-    wp.media.view.l10n.createNewGallery = 'Reordenar imágenes';
-    wp.media.view.l10n.updateGallery = 'Guardar imágenes';
-    wp.media.view.l10n.insertGallery = 'Guardar imágenes';
+    // wp.media.view.l10n.createNewGallery = "Reordenar imágenes";
+    // wp.media.view.l10n.updateGallery = "Guardar imágenes";
+    // wp.media.view.l10n.insertGallery = "Guardar imágenes";
 
     // OPEN THE MODAL
-
     winMedia.open();
-
-
-  });
-  // Create the media frame, gallery without sidebars or details
-
-
-  /* win_media_frame.on( 'select', function() {
-// var selectedImages = win_media_frame.state().get('selection').toJSON();
-var selectedImages = win_media_frame.state().get('selection');
-
-selectedImages.map( function(image){
-image = image.toJSON();
-console.log(image.menuOrder);
-var url = (image.sizes.thumbnail.url);
-
-imagesUL.append('<img id="image-item__'+image.id+'" src="'+url+'"><input type="hidden" id="image-input__' + image.id + '" value="' + image.id + '">');
-});
-
-
-});
-
-win_media_frame.open(); */
-
-   /* selectedImages.map( function( image ) ) {
-      image = image.toJSON();
-  }
-
-    }
-  }); */
-});
+  }); // addButton
+}); // jQuery
