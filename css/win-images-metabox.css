@@ -1,7 +1,14 @@
-.image-metabox__wrapper {
-  display: flex;
-  flex-flow: row wrap;
+#images-container {
+  margin: 0.5rem 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 130px);
+  justify-content: space-between;
   gap: 0.5rem;
+}
+
+#images-container::after {
+  content: "";
+  flex: auto;
 }
 
 .image-metabox__item {
@@ -12,4 +19,9 @@
   margin: 0;
   padding: 0;
   display: block;
+}
+
+.wp-core-ui .attachment-close,
+.wp-core-ui .media-frame .attachment .describe {
+  display: none;
 }

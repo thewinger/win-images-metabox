@@ -1,58 +1,53 @@
+/* TODO
+ *  [] Change the unselect action in gallery to delete media
+ */
 jQuery(document).ready(function ($) {
   var postID = winFromPHP.postID;
   var existingImages = winFromPHP.existingImages;
-  console.log(`existingImages ${existingImages}`);
-  console.log(`existingVar ${existingImages.length}`);
-  console.log(`existingVarType ${$.type(existingImages)}`);
-
   var addButton = $("#images-upload-button");
-  var removeButton = $("#images-delete-button");
-  var imagesUL = $("#images-container");
-  var hidden = $("#images-hidden-field");
+  var imagesContainer = $("#images-container");
   var l10nOriginal = {}; // STORE ORIGINAL BUTTON VALUES
   l10nOriginal = wp.media.view.l10n; // STORE ORIGINAL BUTTON VALUES
 
   addButton.click(function (e) {
     e.preventDefault();
 
+    // Set gallery state depending if there are existing images
     if (existingImages.length > 0) {
-      // existingImages = $.parseJSON(existingImages);
       galleryState = "gallery-edit";
     } else {
       galleryState = "gallery-library";
     }
 
+    // Create media frame
     var winMedia = (wp.media.frames.winMedia = wp.media({
       state: galleryState,
       frame: "post",
+      router: "upload",
       sortable: true,
+      describe: false,
       library: {
         type: "image",
       },
-      // TODO contentUserSetting not working
+      displaySettings: false,
       contentUserSetting: false,
     }));
 
-    console.log(winMedia);
-
-    // Specify action for 'open' action
     winMedia.on("open", function () {
       if (existingImages.length > 0) {
-        // Hay imagenes por lo que creamos la variable library y
+        // Hay imagenes por lo que creamos la variable library
         var library = winMedia.state().get("library");
-        var selection = winMedia.state().get("selection");
-        // Update selection
+
+        // Metemos las imágenes existentes en esa librería
         existingImages.forEach(function (id) {
           attachment = wp.media.attachment(id);
           attachment.fetch();
-          // selection.add( attachment );
           library.add(attachment);
         });
 
-        // TODO Hide Attachemnt and Gallery Settings left bar
+        // Cambiamos el estado a editar gallery porque ya tenemos imágenes
         winMedia.state("gallery-edit").set("library", library);
         winMedia.state("gallery-edit").set("displaySettings", false);
-        // winMedia.state("gallery-edit").set("selection", selection);
         winMedia.setState("gallery-edit");
 
         winMedia.modal.focusManager.focus();
@@ -65,49 +60,53 @@ jQuery(document).ready(function ($) {
       wp.media.view.l10n = l10nOriginal;
     });
 
-    // This doesn't do anything in gallery mode
-    winMedia.on("insert", function () {
-      console.log("inserted");
-    });
-
-    winMedia.on("select", function () {
-      console.log("selected");
-    });
-
     winMedia.on("update", function () {
       console.log("update");
       // Clean images wrapper
-      imagesUL.html("");
+      imagesContainer.html("");
       // Empty images to put the new ones
       existingImages.length = 0;
       // Get selected images from media frame
       var library = winMedia.state().get("library");
-      var selection = winMedia.state().get("selection");
       console.log(library);
       // Go through each image of library and do something
       library.each(function (selectedImage, i) {
         // Get all image attributes
         var image = selectedImage.attributes;
         var thumb = image.sizes.thumbnail;
-        image.menuOrder = i;
-        imagesUL.append(`
+        imagesContainer.append(`
           <div class="win_image" id="win_image-${image.id}">
             <img src="${thumb.url}" width="${thumb.width}" height="${thumb.height}">
-            <a href="#" class="image-delete">Borrar</a>
             <input type="hidden" name="img_id[]" id="img_id-${image.id}" value="${image.id}">
           </div>
         `);
-        console.log(
-          `id: ${image.id} name: ${image.filename} order: ${image.menuOrder}`
-        );
         existingImages.push(image.id);
       });
-      // tried to set the library save the new menuOrder but didn't work
-      // console.log(library);
-      console.log(selection);
-      // winMedia.state().set('library', library);
-      console.log("Update done");
-    });
+
+      var attachments = library
+        .chain()
+        .filter(function (attachment) {
+          return !_.isUndefined(attachment.id);
+        })
+        .map(function (attachment, index) {
+          // Indices start at 1.
+          index = index + 1;
+          attachment.set("menuOrder", index);
+          return [attachment.id, index];
+        })
+        .object()
+        .value();
+
+      if (_.isEmpty(attachments)) {
+        return;
+      }
+
+      return wp.media.post("save-attachment-order", {
+        nonce: wp.media.model.settings.post.nonce,
+        post_id: wp.media.model.settings.post.id,
+        attachments: attachments,
+      });
+    }); // on.update
 
     // CUSTOMIZE THE MAIN BUTTON TEXT
     // wp.media.view.l10n.createNewGallery = "Reordenar imágenes";
@@ -116,6 +115,5 @@ jQuery(document).ready(function ($) {
 
     // OPEN THE MODAL
     winMedia.open();
-    console.log(winMedia);
   }); // addButton
 }); // jQuery
